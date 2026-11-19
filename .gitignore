@@ -1,0 +1,28 @@
+# Built add-ins: published as GitHub release assets, not committed.
+# The code-free "shell" files are needed to build, so they ARE committed.
+*.xlam
+!* - shell.xlam
+
+# Office temporary and lock files
+~$*
+*.tmp
+*.bak
+
+# Release builds (make_addin_release.py output)
+dist/
+*-notes.md
+
+# Python
+__pycache__/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.venv/
+
+# Windows / editors
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/

@@ -1,0 +1,7 @@
+Option Explicit
+
+' GCV Loader: open the installed GCV add-ins once Excel is ready.
+
+Private Sub Workbook_Open()
+    Application.OnTime Now, "'" & Replace(Me.Name, "'", "''") & "'!GcvLoader.LoadAddins"
+End Sub

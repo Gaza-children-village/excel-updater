@@ -1,0 +1,37 @@
+{
+  "catalogVersion": 1,
+  "tools": [
+    {
+      "id": "gcv/logger",
+      "name": "GCV Logger",
+      "file": "GCV Logger.xlam",
+      "repo": "Gaza-children-village/excel-logger",
+      "required": true,
+      "description": "Logs of all GCV tools; show logs and report an issue."
+    },
+    {
+      "id": "gcv/updater",
+      "name": "GCV Updater",
+      "file": "GCV Updater.xlam",
+      "repo": "Gaza-children-village/excel-updater",
+      "required": true,
+      "description": "Installs updates and new GCV tools."
+    },
+    {
+      "id": "gcv/student-lookup",
+      "name": "GCV Student Lookup",
+      "file": "GCV Student Lookup.xlam",
+      "repo": "Gaza-children-village/excel-student-lookup",
+      "required": true,
+      "description": "Fills student rows from the Civil Registry on demand."
+    },
+    {
+      "id": "gcv/english-names",
+      "name": "GCV English Names",
+      "file": "GCV English Names.xlam",
+      "repo": "Gaza-children-village/excel-english-names",
+      "required": false,
+      "description": "TO_ENGLISH(cell): English spelling of an Arabic name, for review."
+    }
+  ]
+}
