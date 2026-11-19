@@ -18,13 +18,17 @@ Option Explicit
 ' answer) is replaced by its previous version, and that version is marked
 ' "bad" so the updater does not install it again.
 '
+' The add-ins are opened when the first workbook is opened or created, not
+' while Excel starts: opening files during start-up makes Excel skip its
+' start screen (new blank workbook, templates, recent files).
+'
 ' Keep this module small: the loader itself is updated by hand.
 ' ============================================================================
 
 Private Declare PtrSafe Function MessageBoxW Lib "user32" (ByVal hWnd As LongPtr, _
     ByVal lpText As LongPtr, ByVal lpCaption As LongPtr, ByVal uType As Long) As Long
 
-Public Const LOADER_VERSION As String = "2.0.0"
+Public Const LOADER_VERSION As String = "2.1.0"
 Public Const LOADER_FILE As String = "GCV Loader.xlam"
 Public Const SETTINGS_APP As String = "GCV Tools"
 Public Const PENDING_SECTION As String = "PendingVersions"     ' file name -> version waiting in pending\
@@ -40,6 +44,8 @@ Private Const MB_RIGHT As Long = &H80000
 Private Const MB_RTLREADING As Long = &H100000
 
 Private mLoaded As String           ' "GCV Logger.xlam;GCV Updater.xlam" - opened in this session
+Private mStarted As Boolean         ' LoadAddins has run in this session
+Private mEvents As LoaderEvents     ' waits for the first workbook
 Private mFso As Object
 Private mBaseFolder As String
 
@@ -75,13 +81,46 @@ Public Function LoadedAddins() As String
     LoadedAddins = mLoaded
 End Function
 
-' Called by ThisWorkbook.Workbook_Open (through Application.OnTime).
+' Called by ThisWorkbook.Workbook_Open. A workbook already open (or in
+' Protected View): load now. Otherwise wait for the first one, so Excel's
+' start screen stays.
+Public Sub StartWhenReady()
+    If HasOpenWorkbook() Then
+        ScheduleLoad
+    Else
+        Set mEvents = New LoaderEvents
+        mEvents.Attach
+    End If
+End Sub
+
+' LoaderEvents: the first workbook was opened or created.
+Public Sub OnFirstWorkbook()
+    If Not mEvents Is Nothing Then mEvents.Detach
+    Set mEvents = Nothing
+    ScheduleLoad
+End Sub
+
+' Runs LoadAddins as soon as Excel has finished opening the workbook.
+Private Sub ScheduleLoad()
+    Application.OnTime Now, "'" & Replace(ThisWorkbook.Name, "'", "''") & "'!GcvLoader.LoadAddins"
+End Sub
+
+' Add-ins are not counted in Workbooks.Count.
+Private Function HasOpenWorkbook() As Boolean
+    On Error Resume Next
+    HasOpenWorkbook = (Workbooks.Count > 0) Or (Application.ProtectedViewWindows.Count > 0)
+    On Error GoTo 0
+End Function
+
 Public Sub LoadAddins()
     Dim name As Variant
     Dim failedNames As String
+    Dim active As Window
 
     On Error GoTo Crashed
-    If Len(mLoaded) > 0 Then Exit Sub                     ' already done in this session
+    If mStarted Then Exit Sub                             ' already done in this session
+    mStarted = True
+    Set active = ActiveWindow                             ' keep the secretary's workbook in front
     LoaderLog "INFO", "Loader " & LOADER_VERSION & " started; Excel " & Application.Version & "."
     ApplyPending
     For Each name In OpeningOrder(AddinFileNames(AddinsFolder()))
@@ -94,6 +133,11 @@ Public Sub LoadAddins()
             failedNames = failedNames & vbCrLf & "- " & name
         End If
     Next name
+    If Not active Is Nothing Then
+        On Error Resume Next                              ' the window may have been closed meanwhile
+        active.Activate
+        On Error GoTo Crashed
+    End If
     If Len(failedNames) > 0 Then
         ShowWarning FromCodePoints("062A 0639 0630 0631 0020 062A 0634 063A 064A 0644 0020 0628 0639 0636 0020 0623 062F 0648 0627 062A 0020 0642 0631 064A 0629 0020 0627 0644 0623 0637 0641 0627 0644 003A") & failedNames & vbCrLf & vbCrLf & _
                     FromCodePoints("064A 0645 0643 0646 0643 0020 0645 062A 0627 0628 0639 0629 0020 0627 0644 0639 0645 0644 002E 0020 0623 0628 0644 063A 0020 0627 0644 0645 0633 0624 0648 0644 0020 0627 0644 062A 0642 0646 064A 0020 0028 0632 0631 0020 0627 0644 0625 0628 0644 0627 063A 0020 0639 0646 0020 0645 0634 0643 0644 0629 0029 002E")
