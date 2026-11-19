@@ -1,0 +1,26 @@
+# VBA sources must have CRLF line endings, or the VBA editor imports them
+# wrongly. Git stores them normalised and checks them out with CRLF on every
+# machine (also on the Linux CI runner).
+*.bas   text eol=crlf
+*.cls   text eol=crlf
+*.frm   text eol=crlf
+*.code  text eol=crlf
+
+# Windows scripts
+*.bat   text eol=crlf
+*.cmd   text eol=crlf
+*.ps1   text eol=crlf
+
+# Everything else that is text: normalised, native line endings
+*.md    text
+*.xml   text
+*.json  text
+*.yml   text
+*.py    text
+*.toml  text
+
+# Office files are binary
+*.xlam  binary
+*.xlsm  binary
+*.xlsx  binary
+*.frx   binary
