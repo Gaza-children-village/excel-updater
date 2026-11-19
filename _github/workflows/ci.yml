@@ -1,0 +1,73 @@
+# CI for a GCV add-in repository (the same file in every excel-* repository).
+#
+# Every push and pull request: source checks (gcv_ci.py check).
+# excel-updater also: catalog.json and the release tool's tests.
+#
+# Release (GitHub only - releases are not mirrored from Gitea):
+#   1. Build the add-in in Excel (without test modules) and upload it as a DRAFT:
+#        gh release create logger-v1.0.1 "GCV Logger.xlam" --draft --repo <owner>/<repo>
+#   2. Push the tag logger-v1.0.1 (on main, through Gitea; the mirror carries it).
+#   3. This workflow checks the uploaded file against the tag and CHANGELOG.md,
+#      adds manifest.json and publishes. On any problem the release stays a draft.
+#   Draft uploaded after the tag? Re-run the failed "release" job, or:
+#        gh workflow run ci.yml -f tag=logger-v1.0.1 --repo <owner>/<repo>
+
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+    tags: ["*-v*"]
+  pull_request:
+    branches: [develop, main]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to check and publish, e.g. logger-v1.0.1"
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    container: python:3.12-slim
+    env:
+      TAG: ${{ github.ref_type == 'tag' && github.ref_name || inputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+
+      - name: Source checks (VBA files, ribbon, identity, CHANGELOG, tag, catalog)
+        run: python .github/scripts/gcv_ci.py check --root . ${TAG:+--tag "$TAG"}
+
+      - name: Release tool tests (excel-updater only)
+        run: |
+          if [ ! -f release-tools/pyproject.toml ]; then echo "No release tool in this repository."; exit 0; fi
+          cmp .github/scripts/make_addin_release.py release-tools/make_addin_release.py
+          cmp .github/scripts/gcv_ci.py release-tools/gcv_ci.py
+          # Needs internet. For offline Gitea runners, use an image that already has these tools.
+          pip install --quiet pytest pytest-cov mypy ruff
+          cd release-tools
+          ruff format --check .
+          ruff check .
+          mypy --strict .
+          python -m pytest --cov --cov-branch --cov-report=term-missing --cov-fail-under=80
+
+  release:
+    needs: checks
+    if: github.server_url == 'https://github.com' && (github.ref_type == 'tag' || github.event_name == 'workflow_dispatch')
+    runs-on: ubuntu-latest
+    container: python:3.12-slim
+    env:
+      TAG: ${{ github.ref_type == 'tag' && github.ref_name || inputs.tag }}
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+
+      - name: Check the draft release and publish it
+        run: python .github/scripts/gcv_ci.py release --root . --tag "$TAG"
