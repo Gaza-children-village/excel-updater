@@ -23,11 +23,31 @@ function Fail([string]$message) {
     exit 1
 }
 
+# Excel of THIS Windows session only (Get-Process alone also lists Excel of other
+# signed-in users). A hidden Excel without a window (left after a crash or
+# automation) can be closed here; one with a window must be closed by the user.
+function Confirm-ExcelClosed {
+    $session = (Get-Process -Id $PID).SessionId
+    $excel = @(Get-Process -Name EXCEL -ErrorAction SilentlyContinue | Where-Object { $_.SessionId -eq $session })
+    if ($excel.Count -eq 0) { return }
+    $visible = @($excel | Where-Object { $_.MainWindowHandle -ne 0 })
+    if ($visible.Count -gt 0) {
+        Fail "Excel is open ($($visible[0].MainWindowTitle)). Close every Excel window and run this again."
+    }
+    Write-Host ''
+    Write-Host "Excel is still running in the background without a window (process $(($excel | ForEach-Object { $_.Id }) -join ', '))." -ForegroundColor Yellow
+    $answer = Read-Host 'Close it now? Unsaved work in it would be lost. [Y/N]'
+    if ($answer -notmatch '^[Yy]$') {
+        Fail 'Excel is still running. Close it in Task Manager (Details tab, EXCEL.EXE) and run this again.'
+    }
+    $excel | Stop-Process -Force
+    Start-Sleep -Seconds 2
+    Write-Host '  background Excel closed'
+}
+
 Write-Host 'GCV Tools - installation' -ForegroundColor Cyan
 
-if (Get-Process -Name EXCEL -ErrorAction SilentlyContinue) {
-    Fail 'Excel is open. Close every Excel window and run the installer again.'
-}
+Confirm-ExcelClosed
 if (-not (Test-Path "HKCU:\Software\Microsoft\Office\$officeVersion")) {
     Fail "Office $officeVersion was not found for this user. Open Excel once, close it, and try again."
 }
