@@ -32,6 +32,14 @@
       "repo": "Gaza-children-village/excel-english-names",
       "required": false,
       "description": "TO_ENGLISH(cell): English spelling of an Arabic name, for review."
+    },
+    {
+      "id": "gcv/sync",
+      "name": "GCV Sync",
+      "file": "GCV Sync.xlam",
+      "repo": "Gaza-children-village/excel-sync",
+      "required": false,
+      "description": "Copies the school workbook to the school's Google Sheet (one-way, on demand)."
     }
   ]
 }
