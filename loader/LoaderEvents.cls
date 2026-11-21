@@ -10,7 +10,8 @@ Attribute VB_Exposed = False
 Option Explicit
 
 ' Waits for the first workbook of the Excel session (opened, created, or
-' shown in Protected View), then lets GCV Loader open the GCV add-ins.
+' activated - e.g. after "Enable Editing"), then lets GCV Loader open the
+' GCV add-ins. Protected View windows are ignored (see StartWhenReady).
 
 Private WithEvents App As Application
 Attribute App.VB_VarHelpID = -1
@@ -32,6 +33,7 @@ Private Sub App_NewWorkbook(ByVal Wb As Workbook)
     GcvLoader.OnFirstWorkbook
 End Sub
 
-Private Sub App_ProtectedViewWindowOpen(ByVal Pvw As ProtectedViewWindow)
+Private Sub App_WorkbookActivate(ByVal Wb As Workbook)
+    If Wb.IsAddin Then Exit Sub
     GcvLoader.OnFirstWorkbook
 End Sub

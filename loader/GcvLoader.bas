@@ -28,7 +28,7 @@ Option Explicit
 Private Declare PtrSafe Function MessageBoxW Lib "user32" (ByVal hWnd As LongPtr, _
     ByVal lpText As LongPtr, ByVal lpCaption As LongPtr, ByVal uType As Long) As Long
 
-Public Const LOADER_VERSION As String = "2.1.0"
+Public Const LOADER_VERSION As String = "2.1.1"
 Public Const LOADER_FILE As String = "GCV Loader.xlam"
 Public Const SETTINGS_APP As String = "GCV Tools"
 Public Const PENDING_SECTION As String = "PendingVersions"     ' file name -> version waiting in pending\
@@ -81,34 +81,55 @@ Public Function LoadedAddins() As String
     LoadedAddins = mLoaded
 End Function
 
-' Called by ThisWorkbook.Workbook_Open. A workbook already open (or in
-' Protected View): load now. Otherwise wait for the first one, so Excel's
-' start screen stays.
+' Called by ThisWorkbook.Workbook_Open. A workbook already open: load now.
+' Otherwise wait for the first one, so Excel's start screen stays.
+' A file in Protected View does not count: Excel refuses OnTime while it is
+' shown (error 1004), and the add-ins could not work on it anyway. They are
+' loaded when the secretary clicks "Enable Editing" (WorkbookOpen).
 Public Sub StartWhenReady()
     If HasOpenWorkbook() Then
-        ScheduleLoad
-    Else
+        If ScheduleLoad() Then Exit Sub
+    End If
+    WaitForWorkbook
+End Sub
+
+' LoaderEvents: a workbook was opened, created or activated. The events stay
+' attached until the load could be scheduled.
+Public Sub OnFirstWorkbook()
+    If mStarted Then
+        StopWaiting
+    ElseIf ScheduleLoad() Then
+        StopWaiting
+    End If
+End Sub
+
+Private Sub WaitForWorkbook()
+    If mEvents Is Nothing Then
         Set mEvents = New LoaderEvents
         mEvents.Attach
     End If
 End Sub
 
-' LoaderEvents: the first workbook was opened or created.
-Public Sub OnFirstWorkbook()
+Private Sub StopWaiting()
     If Not mEvents Is Nothing Then mEvents.Detach
     Set mEvents = Nothing
-    ScheduleLoad
 End Sub
 
 ' Runs LoadAddins as soon as Excel has finished opening the workbook.
-Private Sub ScheduleLoad()
+' False when Excel refuses (e.g. Protected View, a dialog is open): the
+' next workbook event tries again.
+Private Function ScheduleLoad() As Boolean
+    On Error Resume Next
     Application.OnTime Now, "'" & Replace(ThisWorkbook.Name, "'", "''") & "'!GcvLoader.LoadAddins"
-End Sub
+    ScheduleLoad = (Err.Number = 0)
+    On Error GoTo 0
+End Function
 
-' Add-ins are not counted in Workbooks.Count.
+' Add-ins are not counted in Workbooks.Count; files in Protected View are not
+' workbooks yet.
 Private Function HasOpenWorkbook() As Boolean
     On Error Resume Next
-    HasOpenWorkbook = (Workbooks.Count > 0) Or (Application.ProtectedViewWindows.Count > 0)
+    HasOpenWorkbook = (Workbooks.Count > 0)
     On Error GoTo 0
 End Function
 
